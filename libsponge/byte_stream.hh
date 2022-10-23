@@ -16,7 +16,7 @@ class ByteStream {
     // that's a sign that you probably want to keep exploring
     // different approaches.
     const size_t capacity_;
-    std::string buf_;
+    std::string buf_ = "";
     size_t total_written_ = 0;
     size_t total_read_ = 0;
     bool input_ended_ = false;
