@@ -15,11 +15,11 @@ class ByteStream {
     // all, but if any of your tests are taking longer than a second,
     // that's a sign that you probably want to keep exploring
     // different approaches.
-    const size_t capacity_;
-    std::string buf_ = "";
-    size_t total_written_ = 0;
-    size_t total_read_ = 0;
-    bool input_ended_ = false;
+    const size_t _capacity;
+    std::string _buf = "";
+    size_t _total_written = 0;
+    size_t _total_read = 0;
+    bool _input_ended = false;
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
   public:
@@ -33,6 +33,8 @@ class ByteStream {
     //! as will fit, and return how many were written.
     //! \returns the number of bytes accepted into the stream
     size_t write(const std::string &data);
+
+    size_t write_char(const char c);
 
     //! \returns the number of additional bytes that the stream has space for
     size_t remaining_capacity() const;
