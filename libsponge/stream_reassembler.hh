@@ -16,7 +16,7 @@ class StreamReassembler {
     std::map<size_t, char> _buf{};  //<index, byte>
     ByteStream _output;             //!< The reassembled in-order byte stream
     size_t _capacity;               //!< The maximum number of bytes
-    int _input_end_at = -1;
+    int64_t _input_end_at = -1;
 
     size_t remaining_capacity();
     size_t buf_writeout();
