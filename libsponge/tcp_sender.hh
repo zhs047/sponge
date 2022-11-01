@@ -100,6 +100,8 @@ class TCPSender {
     //! \brief Number of consecutive retransmissions that have occurred in a row
     unsigned int consecutive_retransmissions() const;
 
+    size_t remaining_capacity() const;
+
     //! \brief TCPSegments that the TCPSender has enqueued for transmission.
     //! \note These must be dequeued and sent by the TCPConnection,
     //! which will need to fill in the fields that are set by the TCPReceiver
@@ -116,6 +118,11 @@ class TCPSender {
     //! \brief relative seqno for the next byte to be sent
     WrappingInt32 next_seqno() const { return wrap(_next_seqno, _isn); }
     //!@}
+    uint64_t acked_seqno() const { return _acked_seqno; }
+
+    bool syn_sent() const { return _syn_sent; }
+
+    bool fin_sent() const { return _fin_sent; }
 };
 
 #endif  // SPONGE_LIBSPONGE_TCP_SENDER_HH

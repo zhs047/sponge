@@ -21,12 +21,20 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+    bool _active{true};
+
+    size_t _time_since_last_receive{0};
+
   public:
     //! \name "Input" interface for the writer
     //!@{
 
     //! \brief Initiate a connection by sending a SYN segment
     void connect();
+
+    void disconnect();
+
+    void reset();
 
     //! \brief Write data to the outbound byte stream, and send it over TCP if possible
     //! \returns the number of bytes from `data` that were actually written.
@@ -58,7 +66,7 @@ class TCPConnection {
     //!< \brief summarize the state of the sender, receiver, and the connection
     TCPState state() const { return {_sender, _receiver, active(), _linger_after_streams_finish}; };
     //!@}
-
+    void send_segments();
     //! \name Methods for the owner or operating system to call
     //!@{
 

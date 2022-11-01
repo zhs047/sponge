@@ -1,5 +1,6 @@
 #include "tcp_receiver.hh"
 
+#include <iostream>
 // Dummy implementation of a TCP receiver
 
 // For Lab 2, please replace with a real implementation that passes the
@@ -11,10 +12,19 @@
 using namespace std;
 
 void TCPReceiver::segment_received(const TCPSegment &seg) {
-    if (seg.header().syn) {
+    if (!seg.header().syn && !_isn.has_value()) {
+        return;
+    }
+    if (seg.header().syn && !_isn.has_value()) {
         _isn = seg.header().seqno;
     }
+
     if (_isn.has_value()) {
+        if (!seg.header().syn && seg.header().seqno.raw_value() <= _isn.value().raw_value()) {
+            return;
+        } else if (seg.header().seqno.raw_value() < _isn.value().raw_value()) {
+            return;
+        }
         size_t index = unwrap(seg.header().seqno + seg.header().syn, _isn.value(), _reassembler.idx_expected()) - 1;
         _reassembler.push_substring(seg.payload().copy(), index, seg.header().fin);
     }

@@ -140,6 +140,8 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 
 unsigned int TCPSender::consecutive_retransmissions() const { return _nof_consec_retransmisson; }
 
+size_t TCPSender::remaining_capacity() const { return stream_in().remaining_capacity(); }
+
 void TCPSender::send_empty_segment() {
     TCPSegment empty_segment;
     empty_segment.header().seqno = wrap(_next_seqno, _isn);
