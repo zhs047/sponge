@@ -37,14 +37,14 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         }
     } else if (_sender.acked_seqno() == 0 && !_receiver.ackno().has_value()) {  // syn sent
         if (seg.header().syn && seg.header().ack) {
-            _sender.ack_received(seg.header().ackno, seg.header().win);  // goto established
+            _sender.ack_received(seg.header().ackno, seg.header().win);
             _receiver.segment_received(seg);
             _sender.send_empty_segment();
-            send_segments();
-        } else if (seg.header().syn && !seg.header().ack) {  // goto syn received
+            send_segments();  // goto established
+        } else if (seg.header().syn && !seg.header().ack) {
             _receiver.segment_received(seg);
             _sender.send_empty_segment();
-            send_segments();
+            send_segments();  // goto syn received
         }
     } else if (_sender.acked_seqno() == 0 && _receiver.ackno().has_value() &&
                !_receiver.stream_out().input_ended()) {              // syn received
@@ -60,28 +60,28 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         send_segments();
     } else if (_sender.fin_sent() && bytes_in_flight() > 0 && !_receiver.stream_out().input_ended()) {  // fin wait 1
         if (seg.header().fin) {
-            _sender.ack_received(seg.header().ackno, seg.header().win);  // goto time wait
+            _sender.ack_received(seg.header().ackno, seg.header().win);
             _receiver.segment_received(seg);
             _sender.send_empty_segment();
-            send_segments();
+            send_segments();  // goto time wait
         } else if (seg.header().ack) {
-            _sender.ack_received(seg.header().ackno, seg.header().win);  // goto fin wait 2
+            _sender.ack_received(seg.header().ackno, seg.header().win);
             _receiver.segment_received(seg);
-            send_segments();
+            send_segments();  // goto fin wait 2
         }
     } else if (_sender.fin_sent() && bytes_in_flight() == 0 && !_receiver.stream_out().input_ended()) {  // fin wait 2
-        _sender.ack_received(seg.header().ackno, seg.header().win);  // goto time wait
+        _sender.ack_received(seg.header().ackno, seg.header().win);
         _receiver.segment_received(seg);
         _sender.send_empty_segment();
-        send_segments();
+        send_segments();  // goto time wait
     } else if (_sender.fin_sent() && bytes_in_flight() == 0 && _receiver.stream_out().input_ended()) {  // time wait
         if (seg.header().fin) {
             _sender.ack_received(seg.header().ackno, seg.header().win);
             _receiver.segment_received(seg);
             _sender.send_empty_segment();
-            send_segments();
+            send_segments();  // goto closed
         }
-    } else {
+    } else {  // passive closing
         _sender.ack_received(seg.header().ackno, seg.header().win);
         _receiver.segment_received(seg);
         _sender.fill_window();
@@ -91,12 +91,13 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
 
 void TCPConnection::send_segments() {
     while (!_sender.segments_out().empty()) {
+        auto &seg = _sender.segments_out().front();
         if (_receiver.ackno().has_value()) {
-            _sender.segments_out().front().header().ack = true;
-            _sender.segments_out().front().header().ackno = _receiver.ackno().value();
-            _sender.segments_out().front().header().win = static_cast<uint16_t>(_receiver.window_size());
+            seg.header().ack = true;
+            seg.header().ackno = _receiver.ackno().value();
+            seg.header().win = static_cast<uint16_t>(_receiver.window_size());
         }
-        _segments_out.push(_sender.segments_out().front());
+        _segments_out.push(seg);
         _sender.segments_out().pop();
     }
 
