@@ -20,7 +20,7 @@ class StreamReassembler {
 
     size_t remaining_capacity();
     size_t buf_writeout();
-    void buf_push(const std::string &data, const size_t start);
+    void buf_push(const char c, const size_t start);
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
