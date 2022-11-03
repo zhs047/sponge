@@ -81,7 +81,7 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
         }
         _time2ip.emplace(_now, amsg.sender_ip_address);
         _ip2ether.emplace(amsg.sender_ip_address, make_pair(amsg.sender_ethernet_address, _now));
-        if (_pending_dgram.count(amsg.sender_ip_address) != 0) {
+        while (_pending_dgram.count(amsg.sender_ip_address) != 0) {
             const auto &[dgram, addr, time] = _pending_dgram.at(amsg.sender_ip_address).front();
             send_datagram(dgram, addr);
             _pending_dgram.at(amsg.sender_ip_address).pop_front();
@@ -92,7 +92,7 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
         if (amsg.opcode == ARPMessage::OPCODE_REPLY) {
             _time2ip.emplace(_now, amsg.target_ip_address);
             _ip2ether.emplace(amsg.target_ip_address, make_pair(amsg.target_ethernet_address, _now));
-            if (_pending_dgram.count(amsg.target_ip_address) != 0) {
+            while (_pending_dgram.count(amsg.target_ip_address) != 0) {
                 const auto &[dgram, addr, time] = _pending_dgram.at(amsg.target_ip_address).front();
                 send_datagram(dgram, addr);
                 _pending_dgram.at(amsg.target_ip_address).pop_front();
@@ -126,7 +126,7 @@ void NetworkInterface::tick(const size_t ms_since_last_tick) {
     while (!_time2ip.empty()) {
         const auto [t, ip] = _time2ip.front();
         if (t + NetworkInterface::EXPIRATION <= _now) {
-            if (_ip2ether.at(ip).second == t) {
+            if (_ip2ether.count(ip) != 0 && _ip2ether.at(ip).second == t) {
                 _ip2ether.erase(ip);
             }
             _time2ip.pop();
