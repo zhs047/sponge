@@ -29,7 +29,11 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
             _output.write_char(data[i]);
             ++_idx_expected;
         } else {
-            buf_push(data[i], index + i);
+            string *ptr = const_cast<string *>(&data);
+            ptr->erase(ptr->begin(), ptr->begin() + i);
+            buf_push(*ptr, index + i);
+            buf_writeout();
+            break;
         }
         buf_writeout();
     }
@@ -42,18 +46,21 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     }
 }
 
-void StreamReassembler::buf_push(const char c, const size_t index) {
-    if (_buf.count(index) != 0) {
-        return;
-    }
-    if (buf_writeout() != 0 || remaining_capacity() != 0) {  // not full
-        _buf.emplace(index, c);
-    } else if (!_buf.empty() && index < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
-        if (_buf.rbegin()->first - _input_end_at == 0) {
-            _input_end_at = -1;  // if eof byte discarded reset eof
+void StreamReassembler::buf_push(const string &data, const size_t start) {
+    for (size_t i = 0; i < data.size(); ++i) {
+        if (_buf.count(start + i) != 0) {
+            continue;
         }
-        _buf.erase(--_buf.end());
-        _buf.emplace_hint(--_buf.end(), index, c);
+
+        if (buf_writeout() != 0 || remaining_capacity() != 0) {  // not full
+            _buf.emplace(start + i, data[i]);
+        } else if (!_buf.empty() && start + i < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
+            if (_buf.rbegin()->first - _input_end_at == 0) {
+                _input_end_at = -1;  // if eof byte discarded reset eof
+            }
+            _buf.erase(--_buf.end());
+            _buf.emplace_hint(--_buf.end(), start + i, data[i]);
+        }
     }
 }
 

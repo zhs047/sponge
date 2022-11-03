@@ -5,6 +5,7 @@
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
+#include <list>
 #include <optional>
 #include <queue>
 #include <tuple>
@@ -49,7 +50,7 @@ class NetworkInterface {
     std::queue<std::pair<size_t, uint32_t>> _time2ip{};
 
     //<ip, <dgram, Address, time>>
-    std::unordered_map<uint32_t, std::tuple<InternetDatagram, Address, size_t>> _pending_dgram{};
+    std::unordered_map<uint32_t, std::list<std::tuple<InternetDatagram, Address, size_t>>> _pending_dgram{};
 
     // the time now in ms
     size_t _now{0};

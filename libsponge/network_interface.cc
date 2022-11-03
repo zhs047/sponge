@@ -34,14 +34,14 @@ void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Addres
     EthernetFrame frame;
     frame.header().src = _ethernet_address;
 
-    if (_ip2ether.count(next_hop_ip) != 0 && _ip2ether.at(next_hop_ip).second + NetworkInterface::EXPIRATION > _now) {
+    if (_ip2ether.count(next_hop_ip) != 0) {
         frame.payload() = dgram.serialize();
         frame.header().type = EthernetHeader::TYPE_IPv4;
         frame.header().dst = _ip2ether.at(next_hop_ip).first;
         _frames_out.push(frame);
     } else {
         if (_pending_dgram.count(next_hop_ip) == 0 ||
-            get<2>(_pending_dgram.at(next_hop_ip)) + NetworkInterface::ARP_WAIT <= _now) {
+            get<2>(_pending_dgram.at(next_hop_ip).front()) + NetworkInterface::ARP_WAIT <= _now) {
             ARPMessage amsg;
             amsg.opcode = ARPMessage::OPCODE_REQUEST;
             amsg.sender_ip_address = _ip_address.ipv4_numeric();
@@ -52,7 +52,11 @@ void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Addres
             frame.payload() = BufferList{amsg.serialize()};
             _frames_out.push(frame);
         }
-        _pending_dgram.emplace(next_hop_ip, make_tuple(dgram, next_hop, _now));
+        if (_pending_dgram.count(next_hop_ip) == 0) {
+            // if not exist emplace constructor of list
+            _pending_dgram.emplace(next_hop_ip, list<tuple<InternetDatagram, Address, size_t>>());
+        }
+        _pending_dgram.at(next_hop_ip).push_back(make_tuple(dgram, next_hop, _now));
     }
 }
 
@@ -78,17 +82,23 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
         _time2ip.emplace(_now, amsg.sender_ip_address);
         _ip2ether.emplace(amsg.sender_ip_address, make_pair(amsg.sender_ethernet_address, _now));
         if (_pending_dgram.count(amsg.sender_ip_address) != 0) {
-            const auto &[dgram, addr, time] = _pending_dgram.at(amsg.sender_ip_address);
+            const auto &[dgram, addr, time] = _pending_dgram.at(amsg.sender_ip_address).front();
             send_datagram(dgram, addr);
-            _pending_dgram.erase(amsg.sender_ip_address);
+            _pending_dgram.at(amsg.sender_ip_address).pop_front();
+            if (_pending_dgram.at(amsg.sender_ip_address).empty()) {
+                _pending_dgram.erase(amsg.sender_ip_address);
+            }
         }
         if (amsg.opcode == ARPMessage::OPCODE_REPLY) {
             _time2ip.emplace(_now, amsg.target_ip_address);
             _ip2ether.emplace(amsg.target_ip_address, make_pair(amsg.target_ethernet_address, _now));
             if (_pending_dgram.count(amsg.target_ip_address) != 0) {
-                const auto &[dgram, addr, time] = _pending_dgram.at(amsg.target_ip_address);
+                const auto &[dgram, addr, time] = _pending_dgram.at(amsg.target_ip_address).front();
                 send_datagram(dgram, addr);
-                _pending_dgram.erase(amsg.target_ip_address);
+                _pending_dgram.at(amsg.target_ip_address).pop_front();
+                if (_pending_dgram.at(amsg.target_ip_address).empty()) {
+                    _pending_dgram.erase(amsg.target_ip_address);
+                }
             }
         } else {
             if (amsg.target_ip_address == _ip_address.ipv4_numeric()) {
@@ -116,7 +126,7 @@ void NetworkInterface::tick(const size_t ms_since_last_tick) {
     while (!_time2ip.empty()) {
         const auto [t, ip] = _time2ip.front();
         if (t + NetworkInterface::EXPIRATION <= _now) {
-            if (_ip2ether.count(ip) != 0 && _ip2ether.at(ip).second == t) {
+            if (_ip2ether.at(ip).second == t) {
                 _ip2ether.erase(ip);
             }
             _time2ip.pop();
