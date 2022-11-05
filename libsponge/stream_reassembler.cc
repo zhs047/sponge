@@ -17,8 +17,7 @@ StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity),
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
-    size_t first_unacceptable_idx = _idx_expected + _capacity - _output.buffer_size();
-    if (first_unacceptable_idx <= index) {
+    if (index >= _idx_expected + _capacity - _output.buffer_size()) {
         return;
     }
     for (size_t i = 0; i < data.size(); ++i) {
@@ -27,10 +26,21 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         } else if (index + i == _idx_expected && remaining_capacity() != 0) {
             _output.write_char(data[i]);
             ++_idx_expected;
-        } else {
-            buf_push(data[i], index + i);
+        } else if (remaining_capacity() != 0) {  // not full
+            _buf.emplace(index + i, data[i]);
+        } else if (!_buf.empty() && index + i < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
+            if (_buf.rbegin()->first - _input_end_at == 0) {
+                _input_end_at = -1;  // if eof byte discarded reset eof
+            }
+            _buf.erase(--_buf.end());
+            _buf.emplace_hint(_buf.end(), index + i, data[i]);
         }
-        buf_writeout();
+
+        while (!_buf.empty() && _buf.begin()->first == _idx_expected) {
+            _output.write_char(_buf.begin()->second);
+            _buf.erase(_buf.begin());
+            ++_idx_expected;
+        }
     }
 
     if (eof) {
@@ -38,26 +48,6 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     }
     if (_input_end_at != -1 && _buf.empty()) {
         _output.end_input();
-    }
-}
-
-void StreamReassembler::buf_push(const char c, const size_t index) {
-    if (remaining_capacity() != 0) {  // not full
-        _buf.emplace(index, c);
-    } else if (!_buf.empty() && index < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
-        if (_buf.rbegin()->first - _input_end_at == 0) {
-            _input_end_at = -1;  // if eof byte discarded reset eof
-        }
-        _buf.erase(--_buf.end());
-        _buf.emplace_hint(--_buf.end(), index, c);
-    }
-}
-
-void StreamReassembler::buf_writeout() {
-    while (!_buf.empty() && _buf.begin()->first == _idx_expected) {
-        _output.write_char(_buf.begin()->second);
-        _buf.erase(_buf.begin());
-        ++_idx_expected;
     }
 }
 
