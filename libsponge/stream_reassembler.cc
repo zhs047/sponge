@@ -20,6 +20,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     if (index >= _idx_expected + _capacity - _output.buffer_size()) {
         return;
     }
+    auto hint = _buf.end();
     for (size_t i = 0; i < data.size(); ++i) {
         if (index + i < _idx_expected) {
             continue;
@@ -27,7 +28,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
             _output.write_char(data[i]);
             ++_idx_expected;
         } else if (remaining_capacity() != 0) {  // not full
-            _buf.emplace(index + i, data[i]);
+            hint = _buf.emplace_hint(hint, index + i, data[i]);
         } else if (!_buf.empty() && index + i < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
             if (_buf.rbegin()->first - _input_end_at == 0) {
                 _input_end_at = -1;  // if eof byte discarded reset eof
