@@ -20,26 +20,36 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     if (index >= _idx_expected + _capacity - _output.buffer_size()) {
         return;
     }
-    auto hint = _buf.end();
     for (size_t i = 0; i < data.size(); ++i) {
-        if (index + i < _idx_expected) {
+        size_t cur_idx = index + i;
+        if (cur_idx < _idx_expected) {
             continue;
-        } else if (index + i == _idx_expected && remaining_capacity() != 0) {
+        } else if (cur_idx == _idx_expected && remaining_capacity() != 0) {
             _output.write_char(data[i]);
             ++_idx_expected;
         } else if (remaining_capacity() != 0) {  // not full
-            hint = _buf.emplace_hint(hint, index + i, data[i]);
-        } else if (!_buf.empty() && index + i < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
-            if (_buf.rbegin()->first - _input_end_at == 0) {
+            _buf.emplace(cur_idx, data[i]);
+            _buf_bottom = _buf_bottom > cur_idx ? _buf_bottom : cur_idx;
+        } else if (!_buf.empty() && cur_idx < _buf_bottom) {  // full, discard byte from bottom if possible
+            if (_buf_bottom - _input_end_at == 0) {
                 _input_end_at = -1;  // if eof byte discarded reset eof
             }
-            _buf.erase(--_buf.end());
-            _buf.emplace_hint(_buf.end(), index + i, data[i]);
+            _buf.erase(_buf_bottom);
+            _buf.emplace(cur_idx, data[i]);
+            // find new _buf_bottom
+            _buf_bottom = 0;
+            for (const auto &itm : _buf) {
+                _buf_bottom = _buf_bottom > itm.first ? _buf_bottom : itm.first;
+            }
         }
 
-        while (!_buf.empty() && _buf.begin()->first == _idx_expected) {
-            _output.write_char(_buf.begin()->second);
-            _buf.erase(_buf.begin());
+        auto it = _buf.end();
+        while ((it = _buf.find(_idx_expected)) != _buf.end()) {
+            _output.write_char(it->second);
+            _buf.erase(it);
+            if (_idx_expected == _buf_bottom) {
+                _buf_bottom = 0;
+            }
             ++_idx_expected;
         }
     }
