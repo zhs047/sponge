@@ -19,7 +19,7 @@ class StreamReassembler {
     int64_t _input_end_at = -1;
 
     size_t remaining_capacity();
-    size_t buf_writeout();
+    void buf_writeout();
     void buf_push(const char c, const size_t start);
 
   public:

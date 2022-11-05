@@ -21,11 +21,10 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     if (first_unacceptable_idx <= index) {
         return;
     }
-
     for (size_t i = 0; i < data.size(); ++i) {
         if (index + i < _idx_expected) {
             continue;
-        } else if (index + i == _idx_expected && (buf_writeout() != 0 || remaining_capacity() != 0)) {
+        } else if (index + i == _idx_expected && remaining_capacity() != 0) {
             _output.write_char(data[i]);
             ++_idx_expected;
         } else {
@@ -43,10 +42,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
 }
 
 void StreamReassembler::buf_push(const char c, const size_t index) {
-    if (_buf.count(index) != 0) {
-        return;
-    }
-    if (buf_writeout() != 0 || remaining_capacity() != 0) {  // not full
+    if (remaining_capacity() != 0) {  // not full
         _buf.emplace(index, c);
     } else if (!_buf.empty() && index < _buf.rbegin()->first) {  // full, discard byte from bottom if possible
         if (_buf.rbegin()->first - _input_end_at == 0) {
@@ -57,16 +53,12 @@ void StreamReassembler::buf_push(const char c, const size_t index) {
     }
 }
 
-size_t StreamReassembler::buf_writeout() {
-    size_t written_size = 0;
-    while (!_buf.empty() && _buf.begin()->first == _idx_expected && _output.remaining_capacity() != 0) {
-        char c = _buf.begin()->second;
+void StreamReassembler::buf_writeout() {
+    while (!_buf.empty() && _buf.begin()->first == _idx_expected) {
+        _output.write_char(_buf.begin()->second);
         _buf.erase(_buf.begin());
-        _output.write_char(c);
         ++_idx_expected;
-        ++written_size;
     }
-    return written_size;
 }
 
 size_t StreamReassembler::remaining_capacity() { return _output.remaining_capacity() - _buf.size(); }
